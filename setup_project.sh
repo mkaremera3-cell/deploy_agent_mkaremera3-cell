@@ -1,7 +1,29 @@
 #!/bin/bash
 
 # ============================================
-# PROCESS MANAGEMENT (Signal Trap)
+# Author       : MARWAT DHUL HIJJA KAREMERA
+# Date         : 2026-02-17
+# Description  : Project Setup Script
+# Version      : 1.0, means it is the first release of my script
+# Project name : Automated Project Bootstrapping and process Manangement lab
+
+# ============================================
+# SETUP TASKS, what am going to do
+# 1. Update my system and install the latest updates
+# 2. Install the needed tools and software
+# 3. Create the main project folder and sub folders ( directory)
+# 4. Give the right access to files and folders (permissions)
+# 5. Configure environment variables
+# 6. Initialize version control (git)
+# 7. Create a separate Python workspace 
+# 8. Install the software libraries 
+# 9. Run initial tests / health checks
+# 10.Save a message with the date and time to confirm setup is done (completion)
+# ============================================
+
+
+# ============================================
+# PROGRAM CONTROL (Signal Trap)
 # ============================================
 cleanup_on_interrupt() {
     echo ""
@@ -59,7 +81,7 @@ if [ -d "$PROJECT_DIR" ]; then
 fi
 
 # ============================================
-# DIRECTORY ARCHITECTURE
+# DIRECTORY STRUCTURE
 # ============================================
 echo ""
 echo "Creating project structure..."
