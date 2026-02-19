@@ -1,188 +1,211 @@
 #!/bin/bash
 
-# ============================================
-# Author       : MARWAT DHUL HIJJA KAREMERA
-# Date         : 2026-02-17
-# Description  : Project Setup Script
-# Version      : 1.0, means it is the first release of my script
-# Project name : Automated Project Bootstrapping and process Manangement lab
+# ==========================================================
+# Project Factory - Student Attendance Tracker
+# Author: MARWAT DHUL HIJJA KAREMERA
+# Description: Automated workspace creation with
+#              configuration, signal handling, and validation
+# ==========================================================
 
-# ============================================
-# SETUP TASKS, what am going to do
-# 1. Update my system and install the latest updates
-# 2. Install the needed tools and software
-# 3. Create the main project folder and sub folders ( directory)
-# 4. Give the right access to files and folders (permissions)
-# 5. Configure environment variables
-# 6. Initialize version control (git)
-# 7. Create a separate Python workspace 
-# 8. Install the software libraries 
-# 9. Run initial tests / health checks
-# 10.Save a message with the date and time to confirm setup is done (completion)
-# ============================================
+# -------------------------------
+# GLOBAL VARIABLES
+# -------------------------------
+PROJECT_ID=""
+PROJECT_DIR=""
 
-
-# ============================================
-# PROGRAM CONTROL (Signal Trap)
-# ============================================
-cleanup_on_interrupt() {
+# -------------------------------
+# SIGNAL HANDLER (SIGINT)
+# -------------------------------
+handle_interrupt() {
     echo ""
-    echo "Setup interrupted! Cleaning up..."
-    
+    echo "Interrupt detected. Cleaning up..."
+
     if [ -d "$PROJECT_DIR" ]; then
-        # Create archive of incomplete project
         ARCHIVE_NAME="${PROJECT_DIR}_archive.tar.gz"
+
+        echo "Archiving incomplete project..."
         tar -czf "$ARCHIVE_NAME" "$PROJECT_DIR" 2>/dev/null
-        
+
         if [ $? -eq 0 ]; then
-            echo "Archived incomplete project to: $ARCHIVE_NAME"
+            echo "Archive created: $ARCHIVE_NAME"
+        else
+            echo "Archive failed."
         fi
-        
-        # Delete incomplete directory
+
         rm -rf "$PROJECT_DIR"
-        echo "Removed incomplete directory: $PROJECT_DIR"
+        echo "Incomplete directory removed."
     fi
-    
-    echo "Cleanup complete. Exiting..."
+
+    echo "Exit."
     exit 1
 }
 
-# Set trap for SIGINT
-trap cleanup_on_interrupt SIGINT
+trap handle_interrupt SIGINT
 
-# ============================================
-# MAIN SCRIPT
-# ============================================
-echo "======================================"
-echo "  Student Attendance Tracker Setup"
-echo "======================================"
-echo ""
+# -------------------------------
+# USER INPUT
+# -------------------------------
+echo "==========================================="
+echo "     Student Attendance Project Factory"
+echo "==========================================="
 
-# Get project name from user
-echo "Enter project identifier (e.g., 'MARWAT'):"
-read PROJECT_ID
+read -p "Enter project identifier: " PROJECT_ID
 
 if [ -z "$PROJECT_ID" ]; then
-    echo "Error: Project identifier cannot be empty"
+    echo "Error: Identifier cannot be empty."
     exit 1
 fi
 
 PROJECT_DIR="attendance_tracker_${PROJECT_ID}"
 
-# Check if directory already exists
-if [ -d "$PROJECT_DIR" ]; then
-    echo "Warning: Directory '$PROJECT_DIR' already exists"
-    read -p "Do you want to overwrite it? (y/n): " OVERWRITE
-    if [ "$OVERWRITE" != "y" ]; then
-        echo "Setup cancelled."
-        exit 0
-    fi
-    rm -rf "$PROJECT_DIR"
-fi
-
-# ============================================
-# DIRECTORY STRUCTURE
-# ============================================
-echo ""
-echo "Creating project structure..."
-
-# Create directory structure
+# -------------------------------
+# DIRECTORY CREATION
+# -------------------------------
 mkdir -p "$PROJECT_DIR/Helpers"
 mkdir -p "$PROJECT_DIR/reports"
 
-# Copy files to appropriate locations
-cp attendance_checker.py "$PROJECT_DIR/"
-cp assets.csv "$PROJECT_DIR/Helpers/"
-cp config.json "$PROJECT_DIR/Helpers/"
-cp reports.log "$PROJECT_DIR/reports/"
+# -------------------------------
+# GENERATE config.json
+# -------------------------------
+cat <<EOF > "$PROJECT_DIR/Helpers/config.json"
+{
+    "total_sessions": 30,
+    "thresholds": {
+        "warning": 75,
+        "failure": 50
+    },
+    "run_mode": "live"
+}
+EOF
 
-echo "Directory structure created successfully"
+# -------------------------------
+# GENERATE assets.csv
+# -------------------------------
+cat <<EOF > "$PROJECT_DIR/Helpers/assets.csv"
+Email,Name,Attendance Count,Absence Count
+alice@example.com,Alice Johnson,14,1
+bob@example.com,Bob Smith,7,8
+charlie@example.com,Charlie Davis,4,11
+diana@example.com,Diana Prince,15,0
+EOF
 
-# ============================================
-# DYNAMIC CONFIGURATION (Stream Editing)
-# ============================================
+# -------------------------------
+# GENERATE attendance_checker.py
+# -------------------------------
+cat <<EOF > "$PROJECT_DIR/attendance_checker.py"
+import csv
+import json
+import os
+from datetime import datetime
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_PATH = os.path.join(BASE_DIR, "Helpers", "config.json")
+ASSETS_PATH = os.path.join(BASE_DIR, "Helpers", "assets.csv")
+REPORTS_DIR = os.path.join(BASE_DIR, "reports")
+REPORT_FILE = os.path.join(REPORTS_DIR, "reports.log")
+
+def run_attendance_check():
+    with open(CONFIG_PATH, "r") as f:
+        config = json.load(f)
+
+    total_sessions = config["total_sessions"]
+    warning_threshold = config["thresholds"]["warning"]
+    failure_threshold = config["thresholds"]["failure"]
+    run_mode = config["run_mode"]
+
+    if os.path.exists(REPORT_FILE):
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        archive_name = os.path.join(REPORTS_DIR, f"reports_{timestamp}.log.archive")
+        os.rename(REPORT_FILE, archive_name)
+
+    with open(ASSETS_PATH, "r") as f, open(REPORT_FILE, "w") as log:
+        reader = csv.DictReader(f)
+        log.write(f"--- Attendance Report Run: {datetime.now()} ---\\n")
+
+        for row in reader:
+            name = row["Name"]
+            email = row["Email"]
+            attended = int(row["Attendance Count"])
+
+            attendance_pct = (attended / total_sessions) * 100
+            message = ""
+
+            if attendance_pct < failure_threshold:
+                message = f"URGENT: {name}, your attendance is {attendance_pct:.1f}%. You will fail this class."
+            elif attendance_pct < warning_threshold:
+                message = f"WARNING: {name}, your attendance is {attendance_pct:.1f}%. Please be careful."
+
+            if message:
+                if run_mode == "live":
+                    log.write(f"[{datetime.now()}] ALERT SENT TO {email}: {message}\\n")
+                    print(f"Logged alert for {name}")
+                else:
+                    print(f"[DRY RUN] Email to {email}: {message}")
+
+if __name__ == "__main__":
+    run_attendance_check()
+EOF
+
+# Create empty reports.log
+touch "$PROJECT_DIR/reports/reports.log"
+
+# -------------------------------
+# DYNAMIC CONFIGURATION (SED)
+# -------------------------------
 echo ""
-echo "Configuration Setup"
-read -p "Do you want to update attendance thresholds? (y/n): " UPDATE_CONFIG
+read -p "Do you want to update attendance thresholds? (y/n): " UPDATE
 
-if [ "$UPDATE_CONFIG" = "y" ]; then
-    echo ""
-    
-    # Get warning threshold
-    while true; do
-        read -p "Enter WARNING threshold percentage (default 75): " WARNING_THRESHOLD
-        WARNING_THRESHOLD=${WARNING_THRESHOLD:-75}
-        
-        if [[ "$WARNING_THRESHOLD" =~ ^[0-9]+$ ]] && [ "$WARNING_THRESHOLD" -ge 0 ] && [ "$WARNING_THRESHOLD" -le 100 ]; then
-            break
-        else
-            echo "Invalid input. Please enter a number between 0 and 100."
-        fi
-    done
-    
-    # Get failure threshold
-    while true; do
-        read -p "Enter FAILURE threshold percentage (default 50): " FAILURE_THRESHOLD
-        FAILURE_THRESHOLD=${FAILURE_THRESHOLD:-50}
-        
-        if [[ "$FAILURE_THRESHOLD" =~ ^[0-9]+$ ]] && [ "$FAILURE_THRESHOLD" -ge 0 ] && [ "$FAILURE_THRESHOLD" -le 100 ]; then
-            break
-        else
-            echo "Invalid input. Please enter a number between 0 and 100."
-        fi
-    done
-    
-    # Update config.json using sed (in-place editing)
+if [ "$UPDATE" = "y" ]; then
+    read -p "Enter new WARNING threshold (default 75): " NEW_WARNING
+    NEW_WARNING=${NEW_WARNING:-75}
+
+    read -p "Enter new FAILURE threshold (default 50): " NEW_FAILURE
+    NEW_FAILURE=${NEW_FAILURE:-50}
+
     CONFIG_FILE="$PROJECT_DIR/Helpers/config.json"
-    sed -i "s/\"warning\": [0-9]*/\"warning\": $WARNING_THRESHOLD/" "$CONFIG_FILE"
-    sed -i "s/\"failure\": [0-9]*/\"failure\": $FAILURE_THRESHOLD/" "$CONFIG_FILE"
-    
-    echo "Configuration updated: Warning=${WARNING_THRESHOLD}%, Failure=${FAILURE_THRESHOLD}%"
+
+    sed -i "s/\"warning\": [0-9]*/\"warning\": $NEW_WARNING/" "$CONFIG_FILE"
+    sed -i "s/\"failure\": [0-9]*/\"failure\": $NEW_FAILURE/" "$CONFIG_FILE"
+
+    echo "Thresholds updated."
 else
-    echo "Using default thresholds: Warning=75%, Failure=50%"
+    echo "Default thresholds retained."
 fi
 
-# ============================================
-# ENVIRONMENT VALIDATION (Health Check)
-# ============================================
+# -------------------------------
+# ENVIRONMENT VALIDATION
+# -------------------------------
 echo ""
-echo "Environment Validation"
+echo "Running system health check..."
 
-# Check for Python 3
-if command -v python3 &> /dev/null; then
+if python3 --version > /dev/null 2>&1; then
     PYTHON_VERSION=$(python3 --version)
-    echo "SUCCESS: Python 3 found - $PYTHON_VERSION"
+    echo "Python detected: $PYTHON_VERSION"
 else
-    echo "WARNING: Python 3 is not installed on this system"
-    echo "Please install Python 3 to run the attendance tracker"
+    echo "Warning: python3 is not installed."
 fi
 
-# Verify directory structure
-echo ""
-echo "Verifying directory structure..."
+# Verify structure
 if [ -f "$PROJECT_DIR/attendance_checker.py" ] && \
    [ -f "$PROJECT_DIR/Helpers/assets.csv" ] && \
    [ -f "$PROJECT_DIR/Helpers/config.json" ] && \
    [ -f "$PROJECT_DIR/reports/reports.log" ]; then
-    echo "SUCCESS: All required files are in place"
+    echo "Directory structure verified."
 else
-    echo "ERROR: Directory structure verification failed"
+    echo "Directory validation failed."
     exit 1
 fi
 
-# ============================================
-# COMPLETION
-# ============================================
+# -------------------------------
+# COMPLETION MESSAGE
+# -------------------------------
 echo ""
-echo "======================================"
-echo "Project setup complete!"
-echo "======================================"
+echo "==========================================="
+echo "Project created successfully."
+echo "Location: $PROJECT_DIR"
 echo ""
-echo "Project location: $PROJECT_DIR"
-echo ""
-echo "To run the attendance tracker:"
+echo "To run:"
 echo "  cd $PROJECT_DIR"
 echo "  python3 attendance_checker.py"
-echo ""
-echo "To trigger archive feature: Press Ctrl+C during setup"
-echo "======================================"
+echo "==========================================="
+
